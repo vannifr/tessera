@@ -15,7 +15,6 @@ import {
   readFileSync,
 } from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import * as os from 'node:os';
 import * as lifecycle from '../scan/lifecycle';
 import type { AuditRun, FetchedSource } from '../scan/lifecycle';

@@ -18,7 +18,7 @@ Decisions and measurements: [research.md](./research.md) (R1 to R20). Types: [co
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x (strict), Node.js ≥ 20.3 (CI image `node:22-alpine`, digest-pinned); helper scripts in the scanner image are plain Node (CommonJS, no dependencies)
+**Language/Version**: TypeScript 5.x (strict), Node.js ≥ 20.3 (CI image `node:22-alpine`, digest-pinned); helper scripts in the scanner image are plain Node (CommonJS, no dependencies); the scanner image runtime is Node 24.18.1, not 22 (spike S1: Alpine 3.23 has no Node 22)
 **Primary Dependencies**: existing `@temporalio/*` ^1.24 (TLS options on `Connection` and `NativeConnection`), `pino` ^10. New npm dependencies: none. Node built-ins: `crypto` (ECDSA P-256 keys, signatures, `X509Certificate`), `fetch`, `zlib`, `http`, `tls`, `child_process.execFile` (only in `process-runner.ts`). New host prerequisites: podman ≥ 5 rootless with cgroup v2 `memory` and `pids` delegated (preferred) or Docker ≥ 25 (fallback, lower level); the scanner image built by `npm run isolation:build`; the Temporal server image `temporalio/server:1.32.0` pinned by digest (replaces `temporal server start-dev`)
 **Storage**: unchanged from 004 (private work directory under `os.tmpdir()`, evidence bundle under `TESSERA_EVIDENCE_ROOT`, report under `outputDir`). New local, non-versioned files: `~/.config/tessera/isolation.json` (pinned image ID), `~/.config/tessera/temporal-pki/` (CA and certificates, 0700/0600)
 **Testing**: vitest 5 hermetic unit and integration tests with fake `ProcessRunner` and recorded `inspect`/cgroup fixtures (in `npm run verify` and CI); `npm run test:isolation` with a real runtime and the image (local release gate); `npm run test:tools` (unchanged); cucumber scenarios from `/iikit-04-testify`; `npm run demo` and `npm run dogfood` as ground-truth gates; `npm run release:gate` runs all local gates
@@ -128,11 +128,11 @@ finally
 | FR-002 | R1 boundary: all external tools via isolated runner; runner refuses requests without a hint; architecture test | unit (wiring, refusal), architecture test |
 | FR-003 | scan profile `:ro` mount, restriction `source-read-only`, EROFS attempts recorded (heuristic) | unit (argv, inspect fixture), isolation gate (write payloads) |
 | FR-004 | scan profile `--network none`, restriction `network-none`; npm via record/replay (R7) | unit, isolation gate (host listener sees 0 connections) |
-| FR-005 | time/output (host + runtime), memory/pids from slice counters, causes `limit-memory`, `limit-pids` (R5) | unit (counter fixtures → status), isolation gate (flood, hog, output) |
+| FR-005 | time/output (host + runtime; a runtime `--timeout` kill is ExitCode -1 without message, spike S1), memory/pids from slice counters (`oom_kill` in `memory.events`, not inspect `OOMKilled`, spike S1), causes `limit-memory`, `limit-pids` (R5) | unit (counter fixtures → status), isolation gate (flood, hog, output) |
 | FR-006 | container namespace; probe records `link-outside-source`; `detectTechStack` no-follow (R11) | unit (probe, tech stack), audit-layer fixture with host canary |
 | FR-007 | only the source dir mounted; outputs only via stdout; evidence written by host | isolation gate (canary tree hash, sibling audit, earlier bundle verifies) |
 | FR-008 | per-run work dir, per-run labels, per-audit SELinux level (two categories, allocated from a host-wide registry of active labels under a lock so concurrent audits never share a pair), one mount per container | unit (argv; allocator gives distinct labels for 200 concurrent allocations even when every run id hashes to the same start pair; released labels are reusable), isolation gate (10 distinct concurrent pairs, staggered starts) |
-| FR-009 | `/scratch` tmpfs sized, `HOME`/`TMPDIR` inside it | unit (argv), self-test record |
+| FR-009 | `/scratch` tmpfs sized (`mode=0700,U`, spike S1), `HOME`/`TMPDIR` set by value to `/scratch` (spike S1) | unit (argv), self-test record |
 | FR-010 | `checkIsolation` before fetch, fail-closed runner, stop after isolation loss (R8) | unit, workflow integration (fake activities), isolation gate (runtime made unavailable) |
 | FR-011 | no plain runner wiring, no config value for "none" | architecture test, unit (config parser has no such value) |
 | FR-012 | `temporal:local` publishes 127.0.0.1 only; `connectTemporal` refuses non-loopback without explicit flag (R12) | unit (guards, static config check), local gate (LAN address refused) |
@@ -195,9 +195,9 @@ Re-plan triggers:
 | # | Commit | Content | Verification | Tier |
 |---|--------|---------|--------------|------|
 | 15 | `feat(worker): explicit activity registry; legacy checks unregistered` | `src/activities/registry.ts`, `src/worker.ts` (`buildWorkerOptions`), workflow proxy type | unit (key set, legacy names absent) | C |
-| 16 | `feat(temporal): local PKI with Node crypto` | `src/temporal/pki.ts`, `src/cli/temporal-pki.ts`, script `temporal:pki` (`--rotate`) | unit: X509 parse, chain, SAN, EKU, expiry; `node:tls` mTLS handshake accepted with, refused without and with expired client certificate | C |
+| 16 | `feat(temporal): local PKI with Node crypto` | `src/temporal/pki.ts`, `src/cli/temporal-pki.ts`, script `temporal:pki` (`--rotate`); five leaves incl. `temporal-system-worker`, positive minimal DER serial (spike S2) | unit: X509 parse, chain, SAN, EKU, expiry; `node:tls` mTLS handshake accepted with, refused without and with expired client certificate | C |
 | 17 | `feat(temporal): mTLS connection helper with loopback guard` | `src/temporal/access.ts`; `src/worker.ts`, `src/client.ts` use it; `TEMPORAL_ADDRESS` superseded (review #21) | unit: no certificates → refuse, non-loopback without flag → refuse | C |
-| 18 | `feat(temporal): temporal:local launcher on loopback with mTLS` | `src/cli/temporal-local.ts`, generated server config, pinned image digest | unit (config generation, exposure refusal); local gate (S2 checks as tests) | C |
+| 18 | `feat(temporal): temporal:local launcher on loopback with mTLS` | `src/cli/temporal-local.ts`, generated server config (frontend `bindOnIP 0.0.0.0`, `--userns=keep-id`, `global.tls.systemWorker`, `TEMPORAL_ALLOW_NO_AUTH=true`, `default` namespace registered at start; in-memory SQLite loses state on restart; no Web UI; spike S2), pinned image digest | unit (config generation, exposure refusal); local gate (S2 checks as tests) | C |
 | 19 | `chore: remove docker-compose and worker Dockerfile` | delete `docker-compose.yml`, `Dockerfile`; README topology section | static test: no committed config binds Temporal beyond loopback | A (**needs orchestrator confirmation: deletes tracked files**) |
 
 **Phase 4: fixtures, gates and documentation (US1, US2, US6)**
@@ -249,9 +249,9 @@ The product owner's earlier decisions (container per audit, rootless podman pref
 
 1. Boundary: fetch and scanners in containers; Tessera's own data readers stay on the host with no-follow reads (R1).
 2. Runner: decorator behind `ProcessRunner`, create/inspect/start/rm, no unisolated path (R2).
-3. Limits for memory and processes are read from per-step cgroup slices, not from the runtime's flags (R5).
+3. Limits for memory and processes are read from per-step cgroup slices, not from the runtime's flags (R5); slice names `tessera-<run32>-<stepSlug>a<attempt>.slice` without `-` in the slug, path via `systemctl show` (spike S1).
 4. Image pinned by image ID; inputs pinned; not bit-reproducible, stated (R6).
-5. npm advisories by record, host fetch and replay; semgrep packs in the image with a staleness threshold (R7).
+5. npm advisories by record, host fetch and replay; semgrep packs in the image with a staleness threshold (R7). Stated limit (spike S1): packuments are 404 in replay, remediation reads "update to latest" without a version.
 6. Levels `none`, `partial`, `contained`; mandatory restrictions block a step, resource restrictions lower the level; rootful docker is `partial` (R9).
 7. Source size bounded by cloning into the fetch container's tmpfs (R10).
 8. Temporal: mTLS, stock server in rootless podman publishing only the loopback frontend, Node-native PKI, no UI (R12).
@@ -328,3 +328,21 @@ tests/
 ## Complexity Tracking
 
 No constitution violations; not applicable.
+
+## Amendments after spikes S1 and S2
+
+Source: the addenda at the end of `research.md` (R12 for S2; R3, R5, R6, R7 for S1). Each change is marked `(spike S1)` or `(spike S2)` in the file named. No decision changes and no re-plan; details only.
+
+| # | Where | Old | New | Reason |
+|---|-------|-----|-----|--------|
+| 1 | `contracts/isolation-runner.ts` argv | podman: `--userns keep-id` | podman: `--userns keep-id --user <uid>:<gid>` (docker unchanged); image ends with `USER 65534:65534`; mutation list adds "drop `--user` on podman" | the image `USER` overrides keep-id (ran as root with `USER root`) |
+| 2 | `contracts/isolation-runner.ts` argv | `--tmpfs /scratch:...,mode=1700,...` | podman `mode=0700,...,U`; docker `mode=0700,uid=,gid=` (verify in S3) | `mode=1700` is root-owned, unusable by uid 1000; podman rejects `uid=`/`gid=` |
+| 3 | `contracts/isolation-runner.ts` (`MountTable`, `ContainerSpec.envNames/envValues`), `plan.md` FR-009, `scanner-image.md` | `<WORK>/home` to `/scratch/home`, `<WORK>/tmp` to `/scratch/tmp`; env passed by name | both aliases map to `/scratch`; `HOME`, `TMPDIR`, `NPM_CONFIG_*` passed by value (`--env NAME=value`); by-name passing of runtime-steering names refused; entrypoint/helpers create the directories tools expect | semgrep failed without existing dirs; `HOME` by name breaks podman itself |
+| 4 | `contracts/isolation-runner.ts` `cgroupParent`, `data-model.md` StepContainer, `plan.md` decision 3 | `tessera-<run32>-<stepSlug>.slice` | `tessera-<run32>-<stepSlug>a<attempt>.slice`, no `-` in the slug, path via `systemctl --user show -p ControlGroup --value` | systemd reads `-` as nesting; counters are cumulative per slice, so retries must not share one |
+| 5a | `contracts/scanner-image.md`, `plan.md` Technical Context | Node 22; npm via distribution; catatonit in image; semgrep `/usr/local/bin/semgrep`; base digest open; no `CMD` statement | Node 24.18.1; npm 10.9.8 tarball with sha256; no catatonit; `/usr/bin/semgrep` (also `TOOL_ENTRYPOINTS`); base digest recorded; `CMD []`; manifest `node: 24.x` | Alpine 3.23 has no Node 22; distribution npm is 11.x; podman supplies the init |
+| 5b | `contracts/advisory-data.ts` | stdin path assumed | stdin via `create --interactive` plus `start --attach --interactive`; empty snapshot exits 4 (stated once) | measured |
+| 5c | `contracts/advisory-data.ts`, `data-model.md`, `plan.md` decision 5 | packument fallout unstated | packuments 404: empty `range`, remediation "update to latest" without version; stated limit shown in the report | measured; findings, severities and titles still reproduce |
+| 5d | `contracts/isolation-runner.ts` runner steps and precedence, `data-model.md`, `plan.md` FR-005 | timeout and OOM implied by runtime message or inspect | `--timeout` kill is ExitCode -1, rc 255, no message (classify by host timer or ExitCode, not message); OOM read from `memory.events` `oom_kill`, since inspect says `OOMKilled=false` | measured |
+| 6 | `contracts/temporal-access.ts` launcher, `plan.md` row 18 | frontend bind and runtime flags unstated; `systemWorker or internode` open; HTTP/metrics not published | frontend `bindOnIP 0.0.0.0` in the container (host publish stays `127.0.0.1`); `--userns=keep-id`; `global.tls.systemWorker` with fifth leaf `temporal-system-worker` (`PkiPaths` gains `systemWorkerCert`/`systemWorkerKey`); `TEMPORAL_ALLOW_NO_AUTH=true`; register `default` at every start; `stop()` uses `rm -f -t`; no Web UI in the image | `bindOnLocalHost` resets every connection under pasta; key files 0600 need keep-id; system worker loops without its certificate |
+| 6b | `contracts/temporal-access.ts`, `plan.md` row 18 | SQLite in memory, implicit | stated limit: all state, including `default`, is lost on restart | measured with `podman restart` |
+| 7 | `contracts/temporal-access.ts` serial rule, `plan.md` row 16 | "16 random bytes, first bit cleared" | positive minimal DER INTEGER: `serial[0] = (serial[0] & 0x7f) | 0x40`; encoder strips redundant leading zeros and prefixes `0x00` when the high bit is set; unit test with leading zero byte | non-minimal or negative serial (about 1 in 256) is rejected by Go DER parsing |

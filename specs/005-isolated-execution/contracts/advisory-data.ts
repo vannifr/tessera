@@ -12,10 +12,12 @@
 // record: captures the first POST /-/npm/v1/security/advisories/bulk body (gunzip when content-encoding gzip,
 //   ≤ 5 MiB uncompressed), answers 503 to every request, waits for npm to exit, and writes ONLY the captured
 //   JSON body to stdout. No body captured → exit 3, nothing on stdout.
-// replay with an empty snapshot exits 4 and never starts npm.
 // replay: reads the snapshot from stdin (≤ 32 MiB), refuses to start (exit 4) when stdin is empty or not a JSON
 //   object of arrays; serves it as 200 application/json for POST …/advisories/bulk and 404 for everything else
-//   (packument GETs and the quick-audit fallback); streams npm's stdout and stderr unchanged; exits with npm's code.
+//   (packument GETs and the quick-audit fallback); (spike S1) packuments are therefore 404: `fixAvailable` is true/false,
+//   `range` is empty and remediation reads "Update <pkg> to latest" without a version, a stated limit the report must show;
+//   stdin reaches the container through `create --interactive` plus `start --attach --interactive`; an empty snapshot exits 4
+//   and never starts npm; streams npm's stdout and stderr unchanged; exits with npm's code.
 
 // ---------- Host: validation and fetch ----------
 

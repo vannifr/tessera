@@ -1,0 +1,252 @@
+[
+    {
+        "Id": "c0ffee0700000000000000000000000000000000000000000000000000000000",
+        "Created": "2026-10-04T19:44:56.290791649Z",
+        "Path": "/bin/sh",
+        "Args": [
+            "-c",
+            "i=0; while [ $i -lt 500 ]; do /bin/sleep 5 & i=$((i+1)); done; wait"
+        ],
+        "State": {
+            "Status": "exited",
+            "Running": false,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 0,
+            "ExitCode": 2,
+            "Error": "",
+            "StartedAt": "2026-10-04T19:44:56.458326859Z",
+            "FinishedAt": "2026-10-04T19:44:56.551665096Z"
+        },
+        "Image": "sha256:abe702a90a10d114306d3998eb89b3188206f5db01b5b64be9d8bd087c3cc72b",
+        "ResolvConfPath": "/var/lib/docker/containers/c0ffee0700000000000000000000000000000000000000000000000000000000/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/c0ffee0700000000000000000000000000000000000000000000000000000000/hostname",
+        "HostsPath": "/var/lib/docker/containers/c0ffee0700000000000000000000000000000000000000000000000000000000/hosts",
+        "LogPath": "",
+        "Name": "/tessera-spike-s3-forkbomb",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/work/scratch/s3/work/repo:/src:ro"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "none",
+                "Config": {}
+            },
+            "NetworkMode": "none",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": [
+                "ALL"
+            ],
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": true,
+            "SecurityOpt": [
+                "no-new-privileges"
+            ],
+            "Tmpfs": {
+                "/scratch": "size=512m,mode=0700,uid=1000,gid=1000,noexec,nosuid,nodev",
+                "/tmp": "size=64m,noexec,nosuid,nodev"
+            },
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 2147483648,
+            "NanoCpus": 2000000000,
+            "CgroupParent": "tessera-spike-s3.slice",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 2147483648,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": 64,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware",
+                "/sys/devices/system/cpu/cpu0/thermal_throttle",
+                "/sys/devices/system/cpu/cpu1/thermal_throttle",
+                "/sys/devices/system/cpu/cpu2/thermal_throttle",
+                "/sys/devices/system/cpu/cpu3/thermal_throttle",
+                "/sys/devices/system/cpu/cpu4/thermal_throttle",
+                "/sys/devices/system/cpu/cpu5/thermal_throttle",
+                "/sys/devices/system/cpu/cpu6/thermal_throttle",
+                "/sys/devices/system/cpu/cpu7/thermal_throttle",
+                "/sys/devices/system/cpu/cpu8/thermal_throttle",
+                "/sys/devices/system/cpu/cpu9/thermal_throttle",
+                "/sys/devices/system/cpu/cpu10/thermal_throttle",
+                "/sys/devices/system/cpu/cpu11/thermal_throttle",
+                "/sys/devices/system/cpu/cpu12/thermal_throttle",
+                "/sys/devices/system/cpu/cpu13/thermal_throttle",
+                "/sys/devices/system/cpu/cpu14/thermal_throttle",
+                "/sys/devices/system/cpu/cpu15/thermal_throttle"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ],
+            "Init": true
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/work/scratch/s3/work/repo",
+                "Destination": "/src",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "tessera",
+            "Domainname": "",
+            "User": "1000:1000",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "HOME=/scratch",
+                "TMPDIR=/scratch",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "SEMGREP_IN_DOCKER=1",
+                "SEMGREP_USER_AGENT_APPEND=Docker",
+                "PYTHONIOENCODING=utf8",
+                "PYTHONUNBUFFERED=1",
+                "DOCKER_OTEL_RESOURCE_ATTRIBUTES=vcs.ref.head.name=release-1.178.0,vcs.ref.head.revision=3be49ba826331a569948bb0f2b623f504b06b109,vcs.repository.url.full=github.com/semgrep/semgrep-proprietary,docker.base_image=alpine:3.23",
+                "DD_SERVICE=semgrep-core",
+                "TSAN_OPTIONS=exitcode=0 report_signal_unsafe=0"
+            ],
+            "Cmd": [
+                "-c",
+                "i=0; while [ $i -lt 500 ]; do /bin/sleep 5 & i=$((i+1)); done; wait"
+            ],
+            "Image": "localhost/tessera-spike-s1-scanner:latest",
+            "Volumes": null,
+            "WorkingDir": "/src",
+            "Entrypoint": [
+                "/bin/sh"
+            ],
+            "Labels": {
+                "io.buildah.version": "1.43.4",
+                "maintainer": "support@semgrep.com",
+                "org.opencontainers.image.revision": "3be49ba826331a569948bb0f2b623f504b06b109",
+                "org.opencontainers.image.source": "https://github.com/semgrep/semgrep-proprietary",
+                "tessera.run": "tessera-spike-s3",
+                "tessera.step": "tessera-spike-s3-forkbomb"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "",
+            "SandboxKey": "",
+            "Ports": {},
+            "Networks": {
+                "none": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "EndpointID": "",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+            "digest": "sha256:abe702a90a10d114306d3998eb89b3188206f5db01b5b64be9d8bd087c3cc72b",
+            "size": 3476,
+            "annotations": {
+                "io.containerd.image.name": "localhost/tessera-spike-s1-scanner:latest",
+                "org.opencontainers.image.ref.name": "latest"
+            },
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

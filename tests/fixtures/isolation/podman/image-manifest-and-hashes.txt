@@ -1,0 +1,46 @@
+{
+  "schema": "tessera.scanner-image/v1",
+  "builtAt": "2026-10-04T19:33:56Z",
+  "frameworkRevision": "d14a888c6ac2f1c62fe314651d26db4fc40437a4",
+  "base": {
+    "ref": "docker.io/semgrep/semgrep:1.178.0",
+    "digest": "sha256:fbba1f23d2ef94630c828e8692758f8bc6353a8089841a396a5c041451966ffb"
+  },
+  "tools": {
+    "git": "git version 2.52.0",
+    "node": "v24.18.1",
+    "npm": "10.9.8",
+    "semgrep": "1.178.0",
+    "gitleaks": "8.30.1"
+  },
+  "rules": [
+    {
+      "name": "p/javascript",
+      "path": "/opt/tessera/rules/p-javascript.yaml",
+      "sha256": "e65e8449157ef5d587f2c2a0c17ed388910ca90336e514d27941ccd25543cf4e",
+      "bytes": 214313,
+      "fetchedAt": "2026-10-04T19:32:40Z"
+    },
+    {
+      "name": "p/nodejs",
+      "path": "/opt/tessera/rules/p-nodejs.yaml",
+      "sha256": "eed00ab904b1c439c4c4d6064fd61a50407f042c288a92c9cbd347ddf2fea78f",
+      "bytes": 114750,
+      "fetchedAt": "2026-10-04T19:32:40Z"
+    }
+  ],
+  "files": {
+    "/opt/tessera/bin/advisory-proxy.js": "f5fb716ae7298d57073a16166c111d99a25965275aaf81d7c981be40d229c1bc",
+    "/opt/tessera/config/gitleaks.toml": "b575f6487c170439ac7ec0a68593b0fe91ebf93535ad8e4de50ae281b61505e4",
+    "/opt/tessera/config/npm/globalconfig": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/opt/tessera/config/npm/userconfig": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/opt/tessera/rules/p-javascript.yaml": "e65e8449157ef5d587f2c2a0c17ed388910ca90336e514d27941ccd25543cf4e",
+    "/opt/tessera/rules/p-nodejs.yaml": "eed00ab904b1c439c4c4d6064fd61a50407f042c288a92c9cbd347ddf2fea78f"
+  }
+}
+e65e8449157ef5d587f2c2a0c17ed388910ca90336e514d27941ccd25543cf4e  /opt/tessera/rules/p-javascript.yaml
+eed00ab904b1c439c4c4d6064fd61a50407f042c288a92c9cbd347ddf2fea78f  /opt/tessera/rules/p-nodejs.yaml
+f5fb716ae7298d57073a16166c111d99a25965275aaf81d7c981be40d229c1bc  /opt/tessera/bin/advisory-proxy.js
+b575f6487c170439ac7ec0a68593b0fe91ebf93535ad8e4de50ae281b61505e4  /opt/tessera/config/gitleaks.toml
+/opt/tessera/rules/p-javascript.yaml:0
+/opt/tessera/rules/p-nodejs.yaml:0

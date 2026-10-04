@@ -84,7 +84,7 @@ absent ──initAuditRun──▶ prepared (work dir) ──checkIsolation ok�
 | Field | Type | Notes |
 |-------|------|-------|
 | `name` | string | `tessera-<run>-<stepId>-a<attempt>`, characters outside `[A-Za-z0-9_.-]` replaced by `_` |
-| `slice` | string | `tessera-<run32>-<stepSlug>.slice` |
+| `slice` | string | `tessera-<run32>-<stepSlug>a<attempt>.slice` (spike S1: `stepSlug` has no `-`, systemd reads `-` as nesting; the attempt is in the name so counters do not add up across retries; the cgroup path is resolved with `systemctl --user show -p ControlGroup --value`) |
 | `argv` | string[] | container-side command after translation (recorded) |
 
 State transitions (driven by the isolated runner):
@@ -94,6 +94,7 @@ built (argv) ──create──▶ created ──inspect──▶ checked
    checked ──mandatory restriction not applied──▶ refused ──rm──▶ removed
    checked ──start --attach──▶ running ──exit──▶ exited ──read counters──▶ observed ──rm──▶ removed
    running ──host timeout / output overflow──▶ killed ──rm --force──▶ removed
+   running ──runtime --timeout──▶ exited with ExitCode -1, attach rc 255, no message (spike S1: classified by ExitCode -1 or the host timer, never by a message)
    any ──rm fails──▶ leftover (reported in teardown)
 ```
 
@@ -134,7 +135,7 @@ Present on every `tool-run` record produced after this feature.
 | `argv` | string[] (container side, tokenized, redacted) |
 | `mounts` | `{ target: '/src' \| '/mirror'; access: 'ro' \| 'rw' }[]` |
 | `restrictions` | `IsolationRestriction[]` |
-| `limitEvents` | `{ oomKill: number; pidsMax: number }` or `null` when not observable |
+| `limitEvents` | `{ oomKill: number; pidsMax: number }` or `null` when not observable (spike S1: `oomKill` is the `memory.events` `oom_kill` counter; inspect reports `OOMKilled=false` after a kernel OOM kill) |
 | `blockedAttempts` | `BlockedAttempt[]` |
 
 Validation in `verify`: present on every `tool-run` record of a bundle whose manifest has an isolation statement; `image.id` matches `^sha256:[0-9a-f]{64}$`; all `RestrictionId` values known; every mandatory restriction `applied`.
@@ -159,7 +160,7 @@ Validation in `verify`: present on every `tool-run` record of a bundle whose man
 | `httpStatus`, `responseSha256`, `responseBytes` | |
 | artifact `advisories.json` | the response as received (no secrets; stored for replay and review) |
 
-Status: `completed`; `unavailable` with `advisory-data-missing` (network, timeout, HTTP ≠ 200, invalid JSON, oversize); `partial` with `advisory-request-filtered` when entries were dropped. The npm-audit replay record names `advisorySnapshotSha256` and `advisoryFetchedAt` in its inputs.
+Status: `completed`; `unavailable` with `advisory-data-missing` (network, timeout, HTTP ≠ 200, invalid JSON, oversize); `partial` with `advisory-request-filtered` when entries were dropped. The npm-audit replay record names `advisorySnapshotSha256` and `advisoryFetchedAt` in its inputs. (spike S1) Replay answers packuments with 404, so replayed findings carry an empty `range` and remediation "Update <pkg> to latest" without a version; the report states this limit.
 
 Validation limits: body ≤ 5 MiB uncompressed; ≤ 20 000 names; name matches `^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$` and ≤ 214 characters; ≤ 1 000 versions per name; version ≤ 256 characters of `[0-9A-Za-z.+_-]`; response ≤ 32 MiB, a JSON object whose values are arrays.
 

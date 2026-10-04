@@ -1,0 +1,1 @@
+tessera-proxy: ["POST /-/npm/v1/security/advisories/bulk","GET /body-parser","GET /cookie","GET /express","GET /lodash","GET /minimist","GET /path-to-regexp","GET /qs","GET /send","GET /serve-static","GET /body-parser","GET /cookie","GET /express","GET /lodash","GET /minimist","GET /path-to-regexp","GET /qs","GET /send","GET /serve-static"]

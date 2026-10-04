@@ -1,0 +1,22 @@
+{
+  "ServerVersion": "29.8.2",
+  "CgroupDriver": "systemd",
+  "CgroupVersion": "2",
+  "SecurityOptions": [
+    "name=seccomp,profile=builtin",
+    "name=cgroupns"
+  ],
+  "Driver": "overlayfs",
+  "OperatingSystem": "Fedora Linux 44 (Host Edition)",
+  "KernelVersion": "7.2.4-200.fc44.x86_64",
+  "Name": "host",
+  "DockerRootDir": "/var/lib/docker",
+  "Runtimes": [
+    "io.containerd.runc.v2",
+    "runc",
+    "runsc"
+  ],
+  "DefaultRuntime": "runc",
+  "LiveRestoreEnabled": false,
+  "InitBinary": "docker-init"
+}

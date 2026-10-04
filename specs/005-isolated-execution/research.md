@@ -518,3 +518,62 @@ the missing fix versions in replayed npm findings are acceptable as a stated lim
 - The fork bomb used busybox sh, which stops at the first refused fork (pids.events `max 1`); a tool that keeps
   running after a refused fork (exit 0, `partial/limit-pids`) was measured in R3, not again here.
 - Raw fixtures contain host paths (`/home/vannifr/...`, the scratch path) and the hostname; T004 must scrub them.
+
+
+## Addendum S3 (docker fallback, 2026-10-04) and spike decisions
+
+## S3 addendum: docker fallback (T003, T004)
+
+**Setup**: image of S1 loaded with `podman save | docker load` (15 s); docker 29.8.2, daemon is rootful (dockerd, containerd
+run as root; `SecurityOptions` has only `seccomp` and `cgroupns`, no `rootless`, no userns); the user reaches it through the
+`docker` group, no sudo needed. Profile: `--read-only`, `--tmpfs /tmp` and `/scratch` (`mode=0700,uid=1000,gid=1000`),
+`--cap-drop ALL`, `no-new-privileges`, `--init`, `--pids-limit`, `--memory`/`--memory-swap`, `--cpus 2`, `--log-driver none`,
+`--user 1000:1000`, `--network none`, `-v <src>:/src:ro`, `--cgroup-parent`, labels.
+
+**Result**: the profile runs under docker with `--user` and gives the same scanner results as podman (gitleaks exit 1 with
+1 finding, semgrep 4 results, npm replay exit 1 with 9 packages). Attach works with `--log-driver none`
+(`docker start -a`, `-a -i` for stdin); `docker logs` is refused ("does not support reading"), which is the wanted effect.
+Fixtures: `tests/fixtures/isolation/docker/`.
+
+**Observable by the unprivileged user** (docker group): in `docker inspect` `HostConfig`: ReadonlyRootfs, Tmpfs (with uid/gid
+and size), CapDrop/CapAdd, SecurityOpt `no-new-privileges`, PidsLimit, Memory, MemorySwap, NanoCpus, NetworkMode `none`,
+LogConfig `none`, Init, Binds with `:ro`, Privileged, CgroupParent; `Config.User`, labels; `State.OOMKilled` (true for the
+memory hog, exit 137) and `ExitCode`. `docker info`: no `rootless`, no userns, cgroup driver and version.
+Cgroup counters ARE readable here: `/sys/fs/cgroup` is world-readable on this host, `/proc/<State.Pid>/status` shows
+CapEff 0, NoNewPrivs 1, Seccomp 2 and `/proc/<pid>/cgroup` names the scope while it runs. While the container runs the
+scope has `pids.max`, `memory.max`, `memory.swap.max`, `cpu.max`, `memory.events`, `pids.events`; after exit the scope is
+gone, but the parent slice keeps the counters (`oom_kill 1`, `pids.events max 1`). This is a property of this host's cgroup
+permissions, not of docker: it needs the systemd cgroup driver, a readable cgroup tree, and the runner deriving the path
+(a `-` in a slice name is nesting: `tessera-spike-s3.slice` became `tessera.slice/tessera-spike.slice/tessera-spike-s3.slice`
+in the system manager). Docker reports no cgroup path in inspect.
+**Not observable or not trustworthy**: that the daemon is the real boundary (rootful, root-equivalent for any `docker` group
+member, which the runner cannot restrict); the effective limits after exit (the scope is gone, only inspect `HostConfig`,
+which is the requested value, remains); SELinux label per container (no MCS level was set here; mount relabel `:Z` would
+relabel the host directory as root); `State.OOMKilled` is true here but podman reports false for the same event, so
+counters, not the flag, stay the evidence; docker has no `--timeout` (host timer only).
+
+**New findings**: (1) a rootful docker `--cgroup-parent` creates system slices that the unprivileged runner cannot stop
+(`systemctl stop` needs interactive auth, `rmdir` is denied); three empty slices (`tessera.slice`,
+`tessera-spike.slice`, `tessera-spike-s3.slice`) remain until reboot or a root `systemctl stop tessera.slice`. The docker
+profile should therefore not pass a slice name (use the default `system.slice/docker-<id>.scope`, removed with the
+container) or accept the residue as stated. (2) tmpfs needs `uid=`/`gid=` for docker (podman uses `U`).
+
+**Decision**: docker stays `partial` and is never `contained`: the daemon is rootful and the runner cannot observe or
+prove it as the boundary, whatever the restrictions look like. The profile and the observation of the restrictions through
+`inspect` still apply, so a docker run can name which restrictions are applied; no change to the level function (rule
+"rootful docker is partial" already there). No re-plan.
+
+**Open**: whether to read cgroup counters for docker at all (works on this host, depends on a readable cgroup tree; safe
+default: report limit events as `not observable` for docker unless the scope or slice is readable); the slice residue
+decision for the docker profile (no `--cgroup-parent` versus accepted residue); rootless docker and docker with userns
+remap were not tried; containerd/Podman-as-docker-socket not tried.
+**Leftover**: three empty system slices (see above), root needed to remove.
+
+**T004**: 46 sanitized files in `tests/fixtures/isolation/` (`podman/` 25 from S1, `docker/` 21 from S3), with `README.md`
+(origin, what each proves, sanitization rules); grep for `vannifr`, the host name and `/home/vannifr` finds nothing.
+
+### Decisions after the spikes (autonomous, 2026-10-04)
+- **npm replay limit accepted**: the advisory replay reproduces packages, severities and advisories but not fix versions (packuments are not replayed), so remediation reads "update to latest". The report states this limit; recall on D05 to D07 is unaffected. Revisit when level 3 adds attested advisory data.
+- **Docker profile passes no cgroup-parent slice**: under the rootful daemon it creates system slices the unprivileged runner cannot remove (three empty slices from this spike remain until reboot or a root `systemctl stop tessera.slice`; harmless). Docker counters are read only as an observation, never as a reason to claim `contained`.
+- **Docker scratch option**: the equivalent of the podman `mode=0700,U` option is handled by `--user` plus a tmpfs `uid=,gid=`; checked in S3, recorded in the fixtures README.
+- **No re-plan triggered**: S1, S2 and S3 passed their exit criteria; the contracts were amended (plan.md, "Amendments after spikes S1 and S2").

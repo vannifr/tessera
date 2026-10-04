@@ -1,0 +1,13 @@
+pids 64, 200 background sleeps: start rc=2 wall=.213052904
+stdout:  stderr: 
+pids.events:
+max 1
+memory.events:
+low 0
+high 0
+max 0
+oom 0
+oom_kill 0
+oom_group_kill 0
+sock_throttled 0
+inspect: exit=2 OOMKilled=false

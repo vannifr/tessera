@@ -1,0 +1,179 @@
+{
+  "host": {
+    "arch": "amd64",
+    "buildahVersion": "1.43.4",
+    "cgroupManager": "systemd",
+    "cgroupVersion": "v2",
+    "cgroupControllers": [
+      "cpu",
+      "io",
+      "memory",
+      "pids"
+    ],
+    "conmon": {
+      "package": "conmon-2.2.1-2.fc44.x86_64",
+      "path": "/usr/bin/conmon",
+      "version": "conmon version 2.2.1, commit: "
+    },
+    "cpus": 16,
+    "cpuUtilization": {
+      "userPercent": 7.98,
+      "systemPercent": 1.73,
+      "idlePercent": 90.29
+    },
+    "databaseBackend": "sqlite",
+    "distribution": {
+      "distribution": "fedora",
+      "variant": "host",
+      "version": "44"
+    },
+    "eventLogger": "journald",
+    "freeLocks": 2040,
+    "hostname": "host",
+    "idMappings": {
+      "gidmap": [
+        {
+          "container_id": 0,
+          "host_id": 1000,
+          "size": 1
+        },
+        {
+          "container_id": 1,
+          "host_id": 524288,
+          "size": 65536
+        }
+      ],
+      "uidmap": [
+        {
+          "container_id": 0,
+          "host_id": 1000,
+          "size": 1
+        },
+        {
+          "container_id": 1,
+          "host_id": 524288,
+          "size": 65536
+        }
+      ]
+    },
+    "kernel": "7.2.4-200.fc44.x86_64",
+    "logDriver": "journald",
+    "memFree": 2706075648,
+    "memTotal": 67177553920,
+    "networkBackend": "netavark",
+    "networkBackendInfo": {
+      "backend": "netavark",
+      "version": "netavark 1.17.2",
+      "package": "netavark-1.17.2-1.fc44.x86_64",
+      "path": "/usr/libexec/podman/netavark",
+      "dns": {
+        "version": "aardvark-dns 1.17.1",
+        "package": "aardvark-dns-1.17.1-1.fc44.x86_64",
+        "path": "/usr/libexec/podman/aardvark-dns"
+      },
+      "defaultNetwork": "bridge"
+    },
+    "ociRuntime": {
+      "name": "crun",
+      "package": "crun-1.28-1.fc44.x86_64",
+      "path": "/usr/bin/crun",
+      "version": "crun version 1.28\ncommit: 54f16ffbefcd022bf032af768b5c5ce075c18bfc\nrundir: /run/user/1000/crun\nspec: 1.0.0\n+SYSTEMD +SELINUX +APPARMOR +CAP +SECCOMP +EBPF +CRIU +LIBKRUN +WASM:wasmedge +JSON_C"
+    },
+    "os": "linux",
+    "remoteSocket": {
+      "path": "/run/user/1000/podman/podman.sock",
+      "exists": true
+    },
+    "rootlessNetworkCmd": "pasta",
+    "serviceIsRemote": false,
+    "security": {
+      "apparmorEnabled": false,
+      "capabilities": "CAP_CHOWN,CAP_DAC_OVERRIDE,CAP_FOWNER,CAP_FSETID,CAP_KILL,CAP_NET_BIND_SERVICE,CAP_SETFCAP,CAP_SETGID,CAP_SETPCAP,CAP_SETUID,CAP_SYS_CHROOT",
+      "rootless": true,
+      "seccompEnabled": true,
+      "seccompProfilePath": "/usr/share/containers/seccomp.json",
+      "selinuxEnabled": true
+    },
+    "slirp4netns": {
+      "executable": "",
+      "package": "",
+      "version": ""
+    },
+    "pasta": {
+      "executable": "/usr/bin/pasta",
+      "package": "passt-0^20260728.gf8df3f1-2.fc44.x86_64",
+      "version": "pasta 0^20260728.gf8df3f1-2.fc44.x86_64\nCopyright Red Hat\nGNU General Public License, version 2 or later\n  \u003chttps://www.gnu.org/licenses/old-licenses/gpl-2.0.html\u003e\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n"
+    },
+    "swapFree": 23085056,
+    "swapTotal": 8589930496,
+    "uptime": "514h 12m 21.00s (Approximately 21.42 days)",
+    "variant": "",
+    "linkmode": "dynamic"
+  },
+  "store": {
+    "configFile": "/home/user/.config/containers/storage.conf",
+    "containerStore": {
+      "number": 7,
+      "paused": 0,
+      "running": 1,
+      "stopped": 6
+    },
+    "graphDriverName": "overlay",
+    "graphOptions": {
+      
+    },
+    "graphRoot": "/home/user/.local/share/containers/storage",
+    "graphRootAllocated": 253282484224,
+    "graphRootUsed": 131250315264,
+    "graphStatus": {
+      "Backing Filesystem": "btrfs",
+      "Native Overlay Diff": "true",
+      "Supports d_type": "true",
+      "Supports shifting": "false",
+      "Supports volatile": "true",
+      "Using metacopy": "false"
+    },
+    "imageCopyTmpDir": "/var/tmp",
+    "imageStore": {
+      "number": 28
+    },
+    "runRoot": "/run/user/1000/containers",
+    "volumePath": "/home/user/.local/share/containers/storage/volumes",
+    "transientStore": false
+  },
+  "registries": {
+    "search": [
+  "registry.fedoraproject.org",
+  "registry.access.redhat.com",
+  "docker.io"
+]
+  },
+  "plugins": {
+    "volume": [
+      "local"
+    ],
+    "network": [
+      "bridge",
+      "macvlan",
+      "ipvlan"
+    ],
+    "log": [
+      "k8s-file",
+      "none",
+      "passthrough",
+      "journald"
+    ],
+    "authorization": null
+  },
+  "version": {
+    "APIVersion": "5.8.7",
+    "Version": "5.8.7",
+    "GoVersion": "go1.26.8-X:nodwarf5",
+    "GitCommit": "c593b672bf3db1173aebea565ebf1a724ea196dc",
+    "BuiltTime": "Wed Sep 16 02:00:00 2026",
+    "Built": 1789516800,
+    "BuildOrigin": "Fedora Project",
+    "OsArch": "linux/amd64",
+    "Os": "linux"
+  }
+}

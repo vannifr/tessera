@@ -1,0 +1,22 @@
+{
+  "url": "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+  "fetchedAt": "2026-10-04T19:35:49.448Z",
+  "requestSha256": "d2f6d4158814091967a2cd9a90f85539a2d0693409e3ec2b138b4069ebf8ed4c",
+  "names": 51,
+  "versions": 52,
+  "httpStatus": 200,
+  "responseSha256": "38fef8d3304fe6febbd2ea5cd6d4d5259a6306a499b919bc0627b325c8e61031",
+  "responseBytes": 6680,
+  "objectOfArrays": true,
+  "advisoryPackages": [
+    "body-parser",
+    "cookie",
+    "express",
+    "lodash",
+    "minimist",
+    "path-to-regexp",
+    "qs",
+    "send",
+    "serve-static"
+  ]
+}

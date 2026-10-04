@@ -27,8 +27,8 @@ export interface IsolationHint {
 //   ENOENT → unavailable/not-installed
 // + spawnErrorCode 'EISOLATION' → failed/isolation-unavailable (unavailable when raised by checkIsolation)
 //   other spawn error → failed/spawn-error
-//   timedOut → failed/timeout
-// + limitHit 'memory' → failed/limit-memory
+//   timedOut → failed/timeout   (spike S1: also set when inspect shows ExitCode -1 after the runtime's --timeout; never derived from a message)
+// + limitHit 'memory' → failed/limit-memory   (spike S1: limitHit comes from the memory.events oom_kill counter, not from inspect OOMKilled)
 //   truncated → partial/output-truncated
 // + limitHit 'pids' → partial/limit-pids if the policy classified completed, else failed/limit-pids
 //   exitCode null → failed/killed
@@ -64,7 +64,7 @@ export type LoadProfiles = (env: ProfileEnv) => Record<ProfileName, IsolationPro
 export interface MountTable {
   source: { host: string; container: '/src'; access: 'ro' | 'rw' };
   mirror?: { host: string; container: '/mirror'; access: 'ro' };
-  scratchAliases: { host: string; container: string }[];   // <WORK>/home → /scratch/home, <WORK>/tmp → /scratch/tmp
+  scratchAliases: { host: string; container: string }[];   // <WORK>/home → /scratch, <WORK>/tmp → /scratch (spike S1: HOME and TMPDIR are both /scratch)
   workDir: string;                                           // as cwd → /scratch
   configDir: { host: string; container: '/opt/tessera/config' };
 }
@@ -100,11 +100,12 @@ export interface ContainerSpec {
   entrypoint: string;            // absolute, from TOOL_ENTRYPOINTS; helper modes use /usr/bin/node + /opt/tessera/bin/<helper>.js
   args: string[];                // translated
   workdir: string;               // translated cwd
-  envNames: string[];            // passed as --env NAME; values in the CLI process env only
+  envNames: string[];            // request-derived values: passed as --env NAME; values in the CLI process env only. Refused by name (spike S1): HOME, TMPDIR, XDG_*, PATH, CONTAINERS_*, REGISTRY_AUTH_FILE, DOCKER_*, CONTAINER_HOST (they steer the runtime CLI)
+  envValues: Record<string, string>;   // (spike S1) fixed framework values passed by value as --env NAME=value: HOME=/scratch, TMPDIR=/scratch, NPM_CONFIG_*; never secrets
   profile: IsolationProfile;
   mounts: MountTable;
   labels: Record<string, string>;   // tessera.run, tessera.step, tessera.attempt, tessera.created
-  cgroupParent: string;          // tessera-<run32>-<stepSlug>.slice
+  cgroupParent: string;          // tessera-<run32>-<stepSlug>a<attempt>.slice; (spike S1) stepSlug contains no '-' (systemd reads '-' as nesting), e.g. npmaudit, npmauditrecord; the attempt is in the name so counters do not add up across retries
   selinuxLevel: string | null;   // s0:cA,cB per audit
   timeoutSeconds: number;        // podman --timeout = ceil(host timeout / 1000) + 30
   interactive: boolean;          // true when stdin is supplied
@@ -113,16 +114,19 @@ export interface ContainerSpec {
 export const TOOL_ENTRYPOINTS: Readonly<Record<string, string>> = {
   git: '/usr/bin/git',
   gitleaks: '/usr/local/bin/gitleaks',
-  semgrep: '/usr/local/bin/semgrep',
+  semgrep: '/usr/bin/semgrep',   // (spike S1) was /usr/local/bin/semgrep
   npm: '/usr/bin/npm',
   node: '/usr/bin/node',
 };
 
+// (spike S1) The entrypoint creates the directories the tools expect below /scratch (the runner cannot, the tool is the entrypoint).
 // Produces the argv for `<runtime> create …`. Always includes, for both profiles:
 //   --pull=never --read-only --read-only-tmpfs=false (podman) --tmpfs /tmp:size=64m,noexec,nosuid,nodev
-//   --tmpfs /scratch:size=<n>m,mode=1700,noexec,nosuid,nodev --cap-drop all --security-opt no-new-privileges
+//   --tmpfs /scratch:size=<n>m,mode=0700,noexec,nosuid,nodev,U (podman) | ...,mode=0700,uid=<uid>,gid=<gid> (docker, to verify in S3)   (spike S1: mode=1700 was root-owned and unusable by the non-root user; podman rejects uid=/gid=)
+//   --cap-drop all --security-opt no-new-privileges
 //   --init --pids-limit <n> --memory <n>m --memory-swap <n>m --cpus <n> --log-driver none
-//   --userns keep-id (podman) | --user <uid>:<gid> (docker)  --hostname tessera
+//   --userns keep-id --user <uid>:<gid> (podman) | --user <uid>:<gid> (docker)  --hostname tessera   (spike S1: the image USER overrides keep-id; the image ends with USER 65534:65534 so a missing --user fails closed)
+//   --env HOME=/scratch --env TMPDIR=/scratch (by value, spike S1)
 //   --cgroup-parent <slice> --label … --name … --workdir … --entrypoint <abs> -v <source>:/src:<ro|rw>[,Z]
 //   --security-opt label=level:<level> (when SELinux) --timeout <s> (podman)
 //   scan: --network none        fetch: no --network flag (runtime default egress; pasta for rootless podman)
@@ -145,6 +149,8 @@ export type BuildCreateArgs = (spec: ContainerSpec, runtime: RuntimeFacts) => st
 // ---------- The runner ----------
 
 export interface CgroupReader {
+  // (spike S1) the slice path is resolved with `systemctl --user show -p ControlGroup --value <slice>`, never by string building;
+  // memory.events oom_kill is the OOM observation: inspect says OOMKilled=false even after a kernel OOM kill
   read(slice: string, runtime: RuntimeFacts): Promise<{ oomKill: number; pidsMax: number } | null>; // null: not observable
 }
 
@@ -166,6 +172,8 @@ export interface IsolatedRunnerDeps {
 //  3. `<rt> inspect <name>` → observe restrictions (isolation-record.ts); a mandatory restriction not applied →
 //     `<rt> rm --force`, outcome 'EISOLATION' with detail mandatory-restriction-missing:<id>
 //  4. `<rt> start --attach [--interactive] <name>` via inner runner with the request's timeout, maxOutputBytes, stdin
+//     (spike S1) podman --timeout kill ends with ExitCode -1, attach rc 255, no message, OOMKilled=false: classification of a
+//     timeout relies on the host timer or on ExitCode -1, never on a runtime message
 //  5. on timeout or stdout overflow: `<rt> rm --force --time 0 <name>` before anything else
 //  6. read slice counters → limitHit
 //  7. `<rt> rm --force <name>`; failure is kept in the observation (residue candidate), never thrown

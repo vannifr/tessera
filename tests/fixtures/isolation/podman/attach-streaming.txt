@@ -1,0 +1,12 @@
+timeline (stdout lines as they arrived):
+out 1 t=0.08
+out 2 t=1.07
+out 3 t=2.08
+stderr of first:
+err 1
+err 2
+err 3
+second: rc=7 stdout_bytes=104857604 stderr=err
+inspect exit code: 7
+podman logs: Error: this container is using the 'none' log driver, cannot read logs: this container is not logging output
+LogPath: none path=

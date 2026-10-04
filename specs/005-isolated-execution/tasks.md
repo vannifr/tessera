@@ -46,10 +46,10 @@
   - Tier C (decides the container profile, the npm replay and the image design that every later task relies on). Files: `research.md` (addenda), scratch `Containerfile`. Consumes: R3, R6, R7. Produces: image ID, recorded `inspect` and cgroup counter output, input for fixtures. Parallel with S2 only if run by different executors; otherwise after S2.
   - Requirements: FR-004, FR-005, FR-019, FR-020.
   - Exit criterion (all must hold): image ID recorded; demo npm replay yields the 9 packages; semgrep packs present and hashed; `--log-driver none` with `start --attach` streams output; parallel containers with a shared SELinux level work with `:Z`; podman `--timeout` kills a sleeping container. Re-plan trigger: S1 fails on any criterion -> stop and re-plan R6 and R7 before Phase 3 (with the product owner for R7 when the npm replay does not reproduce the findings); this file is amended with a semantic diff.
-- [ ] T003 Spike S3: run the same image through the docker fallback; record which restrictions are observable and that the profile works with `--user`; record in `research.md`
+- [x] T003 Spike S3: run the same image through the docker fallback; record which restrictions are observable and that the profile works with `--user`; record in `research.md`
   - Tier B (a bounded experiment with a fixed question; no design decision beyond "partial only"). Files: `research.md`. Consumes: S1. Produces: observable-restriction list for docker. Exit criterion: profile runs under docker with `--user`; observable restrictions listed. Re-plan trigger: S3 fails -> docker is partial-only (never `contained`), already assumed by the level function; no other change. Depends on: T002.
   - Requirements: FR-018.
-- [ ] T004 Capture the recorded fixtures from S1 (`podman version`, `info`, `inspect`, `memory.events`, `pids.events`, hostile and normal start outputs, docker variants from S3) in `tests/fixtures/isolation/` and write the spike decision note (what was decided, what stays open)
+- [x] T004 Capture the recorded fixtures from S1 (`podman version`, `info`, `inspect`, `memory.events`, `pids.events`, hostile and normal start outputs, docker variants from S3) in `tests/fixtures/isolation/` and write the spike decision note (what was decided, what stays open)
   - Tier B (judgment on which outputs are representative; no behavior). Files: `tests/fixtures/isolation/*.json`, `research.md`. Consumes: S1, S3. Produces: input for the pure observation and level tests. Depends on: T002, T003.
   - Requirements: FR-015.
 

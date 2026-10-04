@@ -1,0 +1,14 @@
+pids.max: 64
+memory.max: 2147483648
+memory.swap.max: 0
+pids.events: max 0
+memory.events: low 0
+high 0
+max 0
+oom 0
+oom_kill 0
+oom_group_kill 0
+sock_throttled 0
+pids.current: 2
+memory.current: 557056
+cpu.max: 200000 100000

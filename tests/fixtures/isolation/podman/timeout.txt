@@ -1,0 +1,3 @@
+--timeout 5, sleep 120: start rc=255 wall=5.360184626
+stderr: 
+state=exited exit=-1 oom=false error=

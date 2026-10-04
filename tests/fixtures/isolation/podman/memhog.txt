@@ -1,0 +1,14 @@
+memory 512m node allocation loop: start rc=137
+slice: /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/tessera.slice/tessera-spike.slice/tessera-spike-s1.slice/tessera-spike-s1-memhog.slice
+memory.events:
+low 0
+high 0
+max 36
+oom 1
+oom_kill 1
+oom_group_kill 0
+sock_throttled 0
+pids.events:
+max 0
+inspect: exit=137 OOMKilled=false
+stderr tail: 

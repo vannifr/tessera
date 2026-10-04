@@ -1,0 +1,8 @@
+{
+  "testify": {
+    "assertion_hash": "6bd09a91a73bff9c88eba5ef129148e4e2ddd7c51d178bfcac53b725f5ee85e4",
+    "generated_at": "2026-10-04T15:52:36Z",
+    "features_dir": "specs/005-isolated-execution/tests/features",
+    "file_count": 6
+  }
+}

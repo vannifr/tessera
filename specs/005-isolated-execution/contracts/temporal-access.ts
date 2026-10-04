@@ -56,6 +56,12 @@ export type AccessErrorCode =
   | 'non-loopback'          // host is not 127.0.0.1, ::1 or localhost and TESSERA_TEMPORAL_REMOTE !== '1'
   | 'invalid-address';
 
+// Exact error messages (TemporalAccessError.message), asserted by the connection-helper tests:
+//   no-credentials    'client certificate or key file missing or unreadable'
+//   insecure-key-file 'key file mode is wider than 0600 or not owned by the current user'
+//   non-loopback      'non-loopback address requires TESSERA_TEMPORAL_REMOTE=1'
+//   invalid-address   'address is not a valid host:port'
+
 // Pure resolution plus file reads; throws TemporalAccessError(code) — the worker exits non-zero, the client prints
 // the code. There is no option for plaintext or for skipping the client certificate.
 export type ResolveTemporalAccess = (identity: Identity, env: TemporalAccessEnv) => Promise<TemporalAccess>;

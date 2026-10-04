@@ -52,7 +52,8 @@ A phase is an IIKit phase (spec, plan, tests, tasks, implementation) or a delive
    The raw report is never trusted: every claim is checked against the code and triaged in `docs/review-NNN-<model>.md` with
    an action per item (valid, minor, not applicable, false).
 3. **Actions land**: valid findings become fixes or backlog issues in the same phase, with the review named in the commit body.
-4. **Long-term goal check**: re-read the product goal and levels in `docs/assurance-roadmap.md`; note whether the phase moved a
+4. **Dogfood run**: `npm run dogfood` on the pushed commit must end COMPLETE with a verified signature; what it exposes becomes a fix or a backlog issue.
+5. **Long-term goal check**: re-read the product goal and levels in `docs/assurance-roadmap.md`; note whether the phase moved a
    level criterion and update the roadmap in the same commit.
 
 ## Tier C files and the security gate
@@ -70,7 +71,7 @@ A red pipeline on `main` stops all new work until it is green again. Security fi
 
 ## Cadence (weekly, 30 minutes)
 
-- **Review**: run `npm run demo`, show the report and the computed assurance level.
+- **Review**: run `npm run demo` and `npm run dogfood` (Tessera audits itself), show the report and the computed assurance level; triage the dogfood findings in `docs/dogfood/`.
 - **Retro**: what worked, what broke, numbers, actions. Notes in `docs/retro/NNN.md` from `TEMPLATE.md`.
 - **Planning**: pull the next story from Ready, set its appetite.
 

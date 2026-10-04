@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dogfooding: `npm run dogfood` lets Tessera audit its own repository (signed evidence verified). It found and led to fixes for: audits refused for repositories without a web framework, inline import types that semgrep could not parse (correctly reported as INCOMPLETE), and 11 dev-dependency advisories (now 0). See `docs/dogfood/2026-10-04-triage.md`.
 - Renamed the project to Tessera (package, repository, Sonar key, CI).
 - SonarQube quality gate is blocking again: 125 new violations fixed without behavior change (differential test on 174k inputs, 40 of 42 mutations killed, 2 equivalent); one accepted issue, see README. The 2026-11-01 deviation is closed.
 - `tests/unit/security.test.ts` is parameterized (same 21 cases); skipped tests carry cause and owner; the k6 throughput check uses a private temp directory.

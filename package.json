@@ -19,6 +19,7 @@
     "lint": "eslint src --ext .ts",
     "verify": "npm run build && npm run test:coverage && npm run lint",
     "demo": "node demo/run-demo.js",
+    "dogfood": "node scripts/dogfood.js",
     "evidence:verify": "ts-node src/cli/verify-evidence.ts",
     "hooks:install": "git config core.hooksPath .githooks",
     "security:deps": "sh scripts/ci/deps.sh",

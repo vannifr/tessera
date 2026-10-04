@@ -493,6 +493,15 @@ describe('applicationAudit failures end the workflow instead of retrying the tas
     expect(act('generateReport')).not.toHaveBeenCalled();
   });
 
+  it('audits a repository whose language is known but that uses no web framework', async () => {
+    harness.activities.detectTechStack = vi.fn(async () => ({ language: 'nodejs', frameworks: [], hasPayments: false, hasPII: false, packageManager: 'npm' }));
+
+    const result = await applicationAudit(INPUT);
+
+    expect(result.outcome).toBe('complete');
+    expect(act('generateReport')).toHaveBeenCalled();
+  });
+
   it('ends with a non-retryable AuditRejectedError when P0 findings are not approved', async () => {
     const p0 = { ...finding('LEAK-P0', 'gitleaks'), severity: 'P0' as const };
     harness.activities.runGitleaks = vi.fn(async () => step('gitleaks', 'completed', { cause: 'issues-found', findings: [p0] }));

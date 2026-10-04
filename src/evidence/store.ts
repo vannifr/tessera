@@ -1,4 +1,5 @@
 import { constants } from 'node:fs';
+import type { Stats } from 'node:fs';
 import { link, lstat, mkdir, open, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { sha256Hex } from './hash';
@@ -29,7 +30,7 @@ function isErrno(err: unknown, code: string): boolean {
   return typeof err === 'object' && err !== null && (err as NodeJS.ErrnoException).code === code;
 }
 
-async function lstatOrNull(p: string): Promise<import('node:fs').Stats | null> {
+async function lstatOrNull(p: string): Promise<Stats | null> {
   try {
     return await lstat(p);
   } catch (err) {

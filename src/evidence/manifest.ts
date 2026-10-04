@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import type { Stats } from 'node:fs';
+import type { Dirent, Stats } from 'node:fs';
 import { chmod, link, lstat, open, readdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import type { EvidenceManifest, ManifestEntry, Sha256Hex } from './types';
@@ -97,7 +97,7 @@ async function hashFile(bundleDir: string, rel: string, keep: number): Promise<{
   }
 }
 
-async function listDir(bundleDir: string, rel: string): Promise<import('node:fs').Dirent[]> {
+async function listDir(bundleDir: string, rel: string): Promise<Dirent[]> {
   const dirents = await readdir(path.join(bundleDir, rel), { withFileTypes: true });
   for (const d of dirents) {
     if (d.isSymbolicLink()) fail(`refusing symlink at ${rel}/${d.name}`);
@@ -119,7 +119,7 @@ function artifactRecordId(name: string, referenced: Map<string, string>, recordI
   return dot > 0 ? name.slice(0, dot) : name;
 }
 
-function rootLayout(root: import('node:fs').Dirent[]): { hasRecords: boolean; hasArtifacts: boolean } {
+function rootLayout(root: Dirent[]): { hasRecords: boolean; hasArtifacts: boolean } {
   let hasRecords = false;
   let hasArtifacts = false;
   for (const d of root) {
@@ -165,7 +165,7 @@ function noteReferences(rec: Record<string, unknown>, stem: string, referenced: 
   }
 }
 
-async function scanRecord(bundleDir: string, d: import('node:fs').Dirent, runId: string, referenced: Map<string, string>): Promise<ScannedFile> {
+async function scanRecord(bundleDir: string, d: Dirent, runId: string, referenced: Map<string, string>): Promise<ScannedFile> {
   const rel = `records/${d.name}`;
   const stem = d.name.endsWith('.json') ? d.name.slice(0, -'.json'.length) : '';
   if (!d.isFile() || !isSafeName(d.name) || !isSafeName(stem)) fail(`unexpected entry ${rel}`);

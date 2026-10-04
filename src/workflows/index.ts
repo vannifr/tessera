@@ -212,7 +212,7 @@ export async function applicationAudit(input: AuditInput): Promise<AuditResult> 
     );
 
     // Guardrail: Input validation
-    if (!state.techStack || !state.techStack.frameworks.length) {
+    if (!state.techStack || state.techStack.language === 'unknown') {
       const evidence = await sealBestEffort(sourceRecordIds);
       throw ApplicationFailure.create({
         type: 'TechStackNotDetectedError',

@@ -359,3 +359,162 @@ Searched the registry for podman and Temporal TypeScript on 2026-10-04: no relev
 - Not measured: SQLite file mode, docker runtime, IPv6 bind (`::1`) of the launcher, image digest stability over time.
 
 **How to reproduce**: see `scripts/spikes/s2-mtls/README.md`. In short: `podman pull docker.io/temporalio/server:1.32.0`, ensure 7233/8233 are free, then `bash scripts/spikes/s2-mtls/run.sh <work-dir-outside-repo> <lan-ip>`; expected last line `RESULT: all checks passed`; the script removes its container on exit (`podman ps -a --filter name=tessera-spike-s2-` empty, no volumes created).
+
+
+## Addendum R3, R6, R7 (spike S1, 2026-10-04): scanner image, offline packs, npm replay
+
+### Spike S1 addenda for research.md (R3, R6, R7), measured 2026-10-04
+
+Scratch files: `scripts/spikes/s1-image/` (Containerfile, build.sh, write-manifest.js, advisory-proxy.js,
+fetch-advisories.js, profile.sh, run-checks.sh, README.md with the reproduce steps). Raw outputs for T004:
+`<scratchpad>/s1/fixtures/` (podman-version.json, podman-info.json, image-inspect.json, inspect-*.json,
+memhog/forkbomb memory.events and pids.events, start-*.stdout/stderr, advisory snapshot and metadata).
+Host: Fedora 44, kernel 7.2.4, rootless podman 5.8.7, crun 1.28, conmon 2.2.1, cgroup v2 (systemd manager,
+controllers cpu io memory pids), SELinux Enforcing, netavark/pasta.
+
+## Exit criteria (T002)
+
+| Criterion | Result | Evidence |
+|-----------|--------|----------|
+| image ID recorded | PASS | `sha256:d5f6ca15a82d3e80bbcffa71fec6fd1ea26c33d982de245fda48d0948b54f2cc` (tag `localhost/tessera-spike-s1-scanner:latest`, 1 213 455 897 bytes) |
+| demo npm replay yields the 9 packages | PASS | replay: `{"low":3,"high":5,"critical":1,"total":9}` for body-parser, cookie, express, lodash, minimist, path-to-regexp, qs, send, serve-static; identical package set, severities and 22 advisory sources as a live `npm audit` (npm 10.9.8) on the host the same day |
+| semgrep packs present and hashed | PASS | `p/javascript` 74 rules sha256 `e65e8449…cf4e`, `p/nodejs` 36 rules sha256 `eed00ab9…a78f`, fetchedAt 2026-10-04T19:32Z, in `/opt/tessera/manifest.json`; hashes re-verified inside the container |
+| semgrep and gitleaks run offline on the demo in the scan profile | PASS (after two profile corrections, below) | gitleaks: 1 leak `generic-api-key src/config.js:4` (D18), exit 1, 0.51 s, same as host gitleaks 8.30.1. semgrep `--network none --metrics=off` with the baked packs: 4 results (raw-html-format :15, direct-response-write :15 and :19, code-string-concat :19), 0 errors, exit 0, 4.4 s; identical to host semgrep 1.178.0 with registry packs |
+| `--log-driver none` with `start --attach` streams output | PASS | lines arrive live (t=0.08, 1.07, 2.08 s for a 1 s cadence); stdout and stderr stay separate; 100 MiB stdout passes intact (104 857 604 bytes); the container's exit code (7) is the exit code of `start --attach`; `podman logs` refuses ("using the 'none' log driver") |
+| parallel containers with a shared SELinux level work with `:Z` | PASS | 4 concurrent containers, `label=level:s0:c101,c202`, `-v src:/src:ro,Z`: 50/50 reads each, process label `container_t:s0:c101,c202`; host dir relabelled `container_file_t:s0:c101,c202`; a container at `s0:c303,c404` on the same dir without relabel: `Permission denied` |
+| podman `--timeout` kills a sleeping container | PASS | `--timeout 5`, `sleep 120`: `start --attach` returned after 5.36 s with rc 255, inspect `State.Status=exited`, `ExitCode=-1`, `OOMKilled=false`, `State.Error` empty, no stderr |
+
+Additional (R5 counters, requested by T002):
+
+| Payload | Profile | Exit / inspect | Slice counters |
+|---------|---------|----------------|----------------|
+| memory hog (node allocating 16 MiB buffers) | memory 512m, swap = memory | rc 137, `OOMKilled=false` | `memory.events`: `max 36, oom 1, oom_kill 1`; `pids.events`: `max 0` |
+| fork bomb (busybox sh, 200 background sleeps) | pids 64 | rc 2 after 0.21 s (busybox sh treats fork failure as fatal), `OOMKilled=false` | `pids.events`: `max 1`; `memory.events` all 0 |
+
+R5 holds: the runtime does not report the OOM kill; the kernel counters do.
+
+## R3 addendum: scan profile rerun with the scanner image
+
+Same checks as the R3 table, now with the built image and the full scan profile (`profile.sh`):
+`uid=1000 gid=1000`, `CapEff 0000000000000000`, `NoNewPrivs 1`, `Seccomp 2`, `memory.max 2147483648`,
+`memory.swap.max 0`, `pids.max 512`, `cpu.max 200000 100000`, interfaces `lo` only, TCP `ENETUNREACH`, DNS
+`EAI_AGAIN`, writes to `/src`, `/etc`, `/opt/tessera` → "Read-only file system", executing a copied binary from
+`/scratch` → "Permission denied" (noexec), scratch fill stops at 512 MiB, 0 setuid/setgid files on the root
+filesystem, PID 1 `/run/podman-init`, `git rev-parse HEAD` on the read-only source works, start-up 0.29 s.
+Inspect after create: `ReadonlyRootfs=true`, `NetworkMode=none`, `PidsLimit=512`, `Memory=MemorySwap=2147483648`,
+11 caps in `CapDrop`, `CapAdd=[]`, `SecurityOpt=[no-new-privileges, label=level:s0:c101,c202]`, `User=1000:1000`,
+`LogConfig.Type=none`, `Init=true`, `NanoCpus=2000000000`, `CgroupParent=<slice>`, `Config.Timeout=<s>`.
+
+**Contradicts the plan (must change before T009/T010):**
+1. **`--userns keep-id` alone does not set the user.** The draft image (`USER root` during the build) ran as
+   `uid=0` with keep-id; with `USER 65534` it ran as 65534. An image `USER` overrides the keep-id default. Decision:
+   the podman argv also carries `--user <uid>:<gid>` (as docker does), and the Containerfile ends with
+   `USER 65534:65534` so a forgotten `--user` fails closed (cannot read the 0700 work dir) instead of running as
+   root. `buildContainerArgs` mutation list should add "drop `--user` on podman". Contract `isolation-runner.ts`
+   argv comment: `--userns keep-id --user <uid>:<gid>` (podman).
+2. **Scratch tmpfs ownership.** `--tmpfs /scratch:…,mode=1700` is root-owned and unusable by uid 1000 (`mkdir`
+   denied). Podman: `--tmpfs /scratch:size=<n>m,mode=0700,noexec,nosuid,nodev,U` (measured: `drwx------ 1000 1000`,
+   mount options `uid=1000,gid=1000`). Podman rejects `uid=`/`gid=` options; docker needs `uid=<uid>,gid=<gid>`
+   instead of `U` (to verify in S3).
+3. **HOME and TMPDIR.** `/scratch/home` and `/scratch/tmp` do not exist on a fresh tmpfs, and the runner cannot
+   create them (the entrypoint is the tool). semgrep then fails with exit 2, `"Failed to obtain target files from
+   semgrep-core"`. Decision: `HOME=/scratch`, `TMPDIR=/scratch` (gitleaks, semgrep, npm and node all worked). R4's
+   path table maps `<WORK>/home` and `<WORK>/tmp` both to `/scratch`; arguments naming them translate to `/scratch`.
+4. **Environment by name.** `env HOME=/scratch/home podman create --env HOME …` fails with
+   `cannot resolve /scratch/home: lstat /scratch: no such file or directory`: the value-by-name trick sets the
+   variable for podman itself. Decision: fixed framework values (`HOME`, `TMPDIR`, `NPM_CONFIG_*`) are passed by
+   value (`--env NAME=value`, not secret); request-derived values stay by name, and the runner refuses by-name
+   passing of names that steer the runtime CLI (`HOME`, `TMPDIR`, `XDG_*`, `PATH`, `CONTAINERS_*`,
+   `REGISTRY_AUTH_FILE`, `DOCKER_*`, `CONTAINER_HOST`).
+5. `/proc/self/mountinfo` still shows the host source path (R3 limit confirmed, unchanged).
+
+## R5 note from S1 (cgroup slices)
+
+- systemd treats `-` in a slice name as hierarchy: `--cgroup-parent tessera-spike-s1-memhog.slice` landed at
+  `…/user@1000.service/tessera.slice/tessera-spike.slice/tessera-spike-s1.slice/tessera-spike-s1-memhog.slice`.
+  So `tessera-<run32>-<step>.slice` nests under `tessera-<run32>.slice` as planned, but a step slug containing `-`
+  (`npm-audit`) adds a level (`tessera-<run32>-npm.slice`). Decision: step slugs in slice names have no `-`
+  (e.g. `npmaudit`, `npmauditrecord`), and the reader resolves the path with
+  `systemctl --user show -p ControlGroup --value <slice>`, never by string building.
+- Counters are cumulative per slice: a retry in the same slice adds to the earlier attempt's counts. Decision:
+  the attempt is part of the slice name (`tessera-<run32>-<step>a<n>.slice`).
+- `systemctl --user stop tessera-<run32>.slice` removes the run's slices; the empty parent `tessera.slice` stays
+  (harmless, not residue of a run). Stopping `tessera.slice` removed everything.
+- podman `--timeout` produces exit code -1 (attach rc 255) with no message and `OOMKilled=false`; the runner can
+  only map it as `failed/timeout` via its own host timer (which fires first by design) or via inspect `ExitCode=-1`.
+
+## R6 addendum: the scanner image
+
+**Containerfile used** (`scripts/spikes/s1-image/Containerfile`, built with `build.sh`, minimal context):
+base `docker.io/semgrep/semgrep:1.178.0@sha256:fbba1f23d2ef94630c828e8692758f8bc6353a8089841a396a5c041451966ffb`
+(Alpine 3.23.6, local image ID `490afa6660c6`); `apk add --no-cache nodejs=24.18.1-r0 git=2.52.0-r0`; npm 10.9.8 from
+`https://registry.npmjs.org/npm/-/npm-10.9.8.tgz`, sha256 `3e68f9b5…f780` checked, unpacked to
+`/usr/lib/node_modules/npm`, `/usr/bin/npm` linked to `npm-cli.js`; gitleaks 8.30.1 `linux_x64` tarball sha256
+`551f6fc8…70eb` checked; `p/javascript` and `p/nodejs` from `https://semgrep.dev/c/p/<pack>` to
+`/opt/tessera/rules/p-<pack>.yaml`; empty npm user and global config; `gitleaks.toml` and `advisory-proxy.js` copied;
+`manifest.json` written by `write-manifest.js`; `/opt/tessera` root-owned, dirs 0555, files 0444; `USER 65534:65534`.
+Manifest tools as installed: git 2.52.0, node v24.18.1, npm 10.9.8, semgrep 1.178.0, gitleaks 8.30.1.
+File hashes match the host sources (`gitleaks.toml b575f648…05e4`, `advisory-proxy.js f5fb716a…c1bc`).
+Build: about 10 to 15 s with the base already pulled. Size 1.21 GB (base 1.11 GB).
+
+**Contradicts the plan / contract `scanner-image.md`:**
+1. **Node 22 is not available** in Alpine 3.23 (only `nodejs` 24.18.1 and `nodejs-current` 24.15.0). Decision:
+   Node 24.18.1 from the distribution; npm stays 10.9.8 (supports Node ≥ 22.9). Manifest `tools.node` is `24.x`.
+   Alternative considered: copy Node 22 from a digest-pinned `node:22-alpine` stage (second base digest, binary
+   outside the distribution's update path); rejected for the spike, can be revisited if a Node 24 difference shows.
+2. **npm pin**: the distribution `npm` is 11.11.0, and `npm install -g npm@10.9.8` installs to `/usr/local` while
+   `/usr/bin/npm` stays 11.11.0 (measured: manifest showed npm 11.11.0). Decision: no distribution `npm`; npm is a
+   sha256-checked registry tarball, like gitleaks.
+3. **semgrep entrypoint** is `/usr/bin/semgrep` (Python wrapper) in this base; `/usr/local/bin` is empty.
+   `TOOL_ENTRYPOINTS.semgrep` changes to `/usr/bin/semgrep`.
+4. **catatonit is not needed in the image**: podman bind-mounts the host's catatonit as `/run/podman-init`
+   (PID 1 measured). Docker uses its own `docker-init`. Drop catatonit from the contract inputs.
+5. The base sets `Cmd=["semgrep","--help"]` and env `SEMGREP_IN_DOCKER=1`, `DD_SERVICE`, `PYTHONUNBUFFERED`,
+   `DOCKER_OTEL_RESOURCE_ATTRIBUTES`; harmless because the runner always sets the entrypoint and arguments, but the
+   production Containerfile should set `CMD []` and the manifest should list the inherited env.
+6. `ARG BASE` must be redeclared after `FROM` to be visible to `RUN` (first build wrote an empty base digest).
+7. Reproducibility as stated in R6: three builds gave three IDs (`82ba711b…`, `32b51362…`, `d5f6ca15…`, each also
+   with a Containerfile change); rule packs are whatever the registry served (hash recorded, not pinned).
+
+## R7 addendum: offline data
+
+- **gitleaks**: built-in rules; works offline. Version 8.30.1.
+- **semgrep**: baked packs with `--config /opt/tessera/rules/<pack>.yaml --metrics=off --disable-version-check`
+  under `--network none` give the same 4 results as host semgrep with registry packs (`p/javascript` 74 rules,
+  `p/nodejs` 36 rules).
+- **npm record/replay** (scan profile, `--network none`, source mount `npm-audit/` read-only):
+  - record: npm 10.9.8 sent `POST /-/npm/v1/security/advisories/bulk` first, then `POST /-/npm/v1/security/audits/quick`
+    (bulk-first ordering); captured body 1138 bytes, 51 names, 52 versions, sha256 `d2f6d415…ed4c` (equals the
+    canonical request hash); exit 0, 0.53 s.
+  - host fetch (`fetch-advisories.js`, Node 22 `fetch`, gzip POST to the fixed URL): HTTP 200, 6680 bytes, sha256
+    `38fef8d3…1031`, object of arrays, 9 package keys.
+  - replay with the snapshot on stdin: works through `podman create --interactive` + `podman start --attach
+    --interactive` (the stdin path of R2 is viable). npm exit 1 (vulnerabilities found), 0.59 s, 9 packages as above.
+    npm then requested 18 packuments (`GET /<name>`, each of the 9 names twice), answered 404.
+  - empty stdin: proxy exits 4, npm never started, stdout empty.
+- **Effect of the 404 packuments (confirmed)**: `fixAvailable` becomes `true`/`false` instead of
+  `{name, version, isSemVerMajor}`, and `range` is `""` for every package. The 004 parser therefore builds the same
+  9 findings with the same severities and advisory titles, but the evidence content has an empty range and the
+  remediation reads "Update <pkg> to latest" instead of a concrete version. Demo scoring (D05 to D07 match on
+  package name, category and severity) is unaffected. Options for later: also fetch the packuments of the vulnerable
+  names on the host and serve them in replay (more data leaves the host, larger snapshot), or state the limit in
+  the report. Not a re-plan trigger: the findings reproduce.
+
+## Decision
+
+S1 passes every exit criterion. R6 and R7 stand as designed, with the corrections above: podman argv adds
+`--user`, scratch tmpfs gets `mode=0700,U`, `HOME=TMPDIR=/scratch`, framework env by value with a deny-list for
+by-name runtime-steering names, slice names without `-` in the step slug and with the attempt, slice path via
+`systemctl show`, Node 24 instead of 22, npm and gitleaks as hash-checked tarballs, semgrep entrypoint
+`/usr/bin/semgrep`, no catatonit, `CMD []`. These are amendments to `contracts/isolation-runner.ts`,
+`contracts/scanner-image.md`, R3, R4, R5 and R6 (semantic diff), not a re-plan. Open for the product owner: whether
+the missing fix versions in replayed npm findings are acceptable as a stated limit.
+
+## Limits of this spike
+
+- Only rootless podman on this host; docker (`--user`, `uid=`/`gid=` tmpfs, observable restrictions) is S3.
+- The mount-label collision payload (a second audit relabelling the same directory with `:Z` at another level) was
+  not run, to avoid relabelling a shared directory; R14 keeps it for the gate.
+- The fork bomb used busybox sh, which stops at the first refused fork (pids.events `max 1`); a tool that keeps
+  running after a refused fork (exit 0, `partial/limit-pids`) was measured in R3, not again here.
+- Raw fixtures contain host paths (`/home/vannifr/...`, the scratch path) and the hostname; T004 must scrub them.

@@ -13,4 +13,14 @@ module.exports = {
     format: ['progress'],
     publishQuiet: true,
   },
+  '005': {
+    paths: ['specs/005-isolated-execution/tests/features/**/*.feature'],
+    require: [
+      'specs/005-isolated-execution/tests/support/**/*.ts',
+      'specs/005-isolated-execution/tests/step_definitions/**/*.ts',
+    ],
+    requireModule: ['ts-node/register'],
+    format: ['progress'],
+    publishQuiet: true,
+  },
 };

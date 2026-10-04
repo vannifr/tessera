@@ -29,6 +29,10 @@
     "security:licenses": "sh scripts/ci/licenses.sh",
     "security": "npm run security:deps && npm run security:secrets && npm run security:sast && npm run security:licenses",
     "verify:full": "npm run verify && npm run test:bdd:done && npm run security",
+    "test:bdd:005": "cucumber-js --config .cucumber.js --profile 005 --tags \"not @isolation\"",
+    "test:bdd:005:isolation": "cucumber-js --config .cucumber.js --profile 005 --tags @isolation",
+    "test:isolation": "sh scripts/test-isolation.sh",
+    "release:gate": "sh scripts/release-gate.sh",
     "test:bdd:legacy": "cucumber-js --config .cucumber.js --profile legacy"
   },
   "dependencies": {

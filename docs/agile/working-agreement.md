@@ -67,9 +67,10 @@ The product owner works autonomously with the agent. Wherever a phase asks for a
 
 Tier C (never delegated blind, diff read in full, mutation loop required, second opinion by another model family):
 `src/scan/run-tool.ts`, `process-runner.ts`, `env.ts`, `status.ts`, `lifecycle.ts`, `source-probe.ts`, `safe-walk.ts`,
-`src/evidence/*`, `src/workflows/index.ts`, `src/scan/activities.ts`, `src/report/outcome-block.ts`, `src/cli/verify-evidence.ts`.
+`src/evidence/*`, `src/workflows/index.ts`, `src/scan/activities.ts`, `src/report/outcome-block.ts`, `src/cli/verify-evidence.ts`, `src/isolation/*`, `config/isolation/bin/*`, `src/scan/tools/npm-advisories.ts`, `src/temporal/*`, `src/activities/registry.ts`, `src/worker.ts`, `src/cli/temporal-local.ts`, `src/scan/tools/gitleaks.ts`, `src/scan/tools/semgrep.ts`.
 A feature that adds or changes process execution, the network boundary or anything under `src/scan/` or `src/evidence/` has a
 security review checkpoint in its tasks, executed before the feature counts as done.
+Feature 005 has security review checkpoints after plan row 6, after plan row 18 and at the end (tasks T022, T049, T063).
 
 ## Stop the line
 

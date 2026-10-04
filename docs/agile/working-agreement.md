@@ -56,6 +56,13 @@ A phase is an IIKit phase (spec, plan, tests, tasks, implementation) or a delive
 5. **Long-term goal check**: re-read the product goal and levels in `docs/assurance-roadmap.md`; note whether the phase moved a
    level criterion and update the roadmap in the same commit.
 
+## Autonomous approval (product owner decision 2026-10-04)
+
+The product owner works autonomously with the agent. Wherever a phase asks for approval (spec, plan, tasks, release), the agent does not ask:
+1. An independent review by a different model family runs first, read-only, on the artifact (spec, plan, tasks, diff), with a triage in `docs/review-NNN-<model>.md`.
+2. If the review has no open valid finding of severity high, and every valid finding is fixed or recorded as a backlog issue, the agent records the approval in the commit body ("approved by independent review: <model>, triage <file>") and continues.
+3. The agent stops and asks the product owner only for: amending `CONSTITUTION.md`, destructive or outward-facing actions (force push, deleting, secrets, renaming external services), a high finding that cannot be fixed within the phase, or a conflict between a requirement and the constitution.
+
 ## Tier C files and the security gate
 
 Tier C (never delegated blind, diff read in full, mutation loop required, second opinion by another model family):

@@ -1,0 +1,98 @@
+log:
+  stdout: true
+  level: warn
+
+persistence:
+  defaultStore: sqlite-default
+  visibilityStore: sqlite-visibility
+  numHistoryShards: 1
+  datastores:
+    sqlite-default:
+      sql:
+        pluginName: "sqlite"
+        databaseName: "default"
+        connectAddr: "localhost"
+        connectProtocol: "tcp"
+        connectAttributes:
+          mode: "memory"
+          cache: "private"
+        maxConns: 1
+        maxIdleConns: 1
+        maxConnLifetime: "1h"
+    sqlite-visibility:
+      sql:
+        pluginName: "sqlite"
+        databaseName: "default"
+        connectAddr: "localhost"
+        connectProtocol: "tcp"
+        connectAttributes:
+          mode: "memory"
+          cache: "private"
+        maxConns: 1
+        maxIdleConns: 1
+        maxConnLifetime: "1h"
+
+global:
+  membership:
+    maxJoinDuration: 30s
+    broadcastAddress: "127.0.0.1"
+  pprof:
+    port: 0
+  tls:
+    frontend:
+      server:
+        certFile: /etc/temporal/pki/server.pem
+        keyFile: /etc/temporal/pki/server-key.pem
+        requireClientAuth: true
+        clientCaFiles:
+          - /etc/temporal/pki/ca.pem
+      client:
+        serverName: localhost
+        rootCaFiles:
+          - /etc/temporal/pki/ca.pem
+    systemWorker:
+      certFile: /etc/temporal/pki/system-worker.pem
+      keyFile: /etc/temporal/pki/system-worker-key.pem
+      client:
+        serverName: localhost
+        rootCaFiles:
+          - /etc/temporal/pki/ca.pem
+
+services:
+  frontend:
+    rpc:
+      grpcPort: 7233
+      membershipPort: 6933
+      __FRONTEND_BIND__
+      httpPort: 7243
+  matching:
+    rpc:
+      grpcPort: 7235
+      membershipPort: 6935
+      bindOnLocalHost: true
+  history:
+    rpc:
+      grpcPort: 7234
+      membershipPort: 6934
+      bindOnLocalHost: true
+  worker:
+    rpc:
+      grpcPort: 7239
+      membershipPort: 6939
+      bindOnLocalHost: true
+
+clusterMetadata:
+  enableGlobalNamespace: false
+  failoverVersionIncrement: 10
+  masterClusterName: "active"
+  currentClusterName: "active"
+  clusterInformation:
+    active:
+      enabled: true
+      initialFailoverVersion: 1
+      rpcName: "frontend"
+      rpcAddress: "localhost:7233"
+      httpAddress: "localhost:7243"
+
+dcRedirectionPolicy:
+  policy: "noop"

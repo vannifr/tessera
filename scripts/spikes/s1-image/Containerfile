@@ -1,0 +1,50 @@
+# Spike S1 scratch Containerfile (research R6/R7, contracts/scanner-image.md). Not production code.
+# Build: scripts/spikes/s1-image/build.sh (assembles a minimal context; never the repository root).
+ARG BASE=docker.io/semgrep/semgrep:1.178.0@sha256:fbba1f23d2ef94630c828e8692758f8bc6353a8089841a396a5c041451966ffb
+FROM ${BASE}
+ARG BASE
+
+ARG GITLEAKS_VERSION=8.30.1
+ARG GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+ARG NPM_VERSION=10.9.8
+ARG NPM_SHA256=3e68f9b5fcaf1a94ba0e37e6a565c920b2be6bd98998c50970385d6a692af780
+ARG SEMGREP_PACKS="javascript nodejs"
+
+USER root
+
+RUN apk add --no-cache nodejs=24.18.1-r0 git=2.52.0-r0 \
+ && wget -q -O /tmp/npm.tgz "https://registry.npmjs.org/npm/-/npm-${NPM_VERSION}.tgz" \
+ && echo "${NPM_SHA256}  /tmp/npm.tgz" | sha256sum -c - \
+ && mkdir -p /usr/lib/node_modules/npm \
+ && tar -xzf /tmp/npm.tgz -C /usr/lib/node_modules/npm --strip-components=1 \
+ && ln -sf /usr/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm \
+ && rm -f /tmp/npm.tgz
+
+RUN wget -q -O /tmp/gitleaks.tgz \
+      "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+ && echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks \
+ && chown root:root /usr/local/bin/gitleaks && chmod 0755 /usr/local/bin/gitleaks \
+ && rm -f /tmp/gitleaks.tgz
+
+RUN mkdir -p /opt/tessera/rules /opt/tessera/config/npm /opt/tessera/bin \
+ && for p in ${SEMGREP_PACKS}; do \
+      wget -q -O "/opt/tessera/rules/p-${p}.yaml" "https://semgrep.dev/c/p/${p}" || exit 1; \
+      date -u +%Y-%m-%dT%H:%M:%SZ > "/opt/tessera/rules/p-${p}.fetchedAt"; \
+    done \
+ && : > /opt/tessera/config/npm/userconfig \
+ && : > /opt/tessera/config/npm/globalconfig
+
+COPY gitleaks.toml /opt/tessera/config/gitleaks.toml
+COPY advisory-proxy.js /opt/tessera/bin/advisory-proxy.js
+COPY write-manifest.js /tmp/write-manifest.js
+
+ARG BUILT_AT
+ARG FRAMEWORK_REVISION
+RUN node /tmp/write-manifest.js "${BASE}" "${BUILT_AT}" "${FRAMEWORK_REVISION}" \
+ && rm -f /tmp/write-manifest.js /opt/tessera/rules/*.fetchedAt \
+ && chown -R root:root /opt/tessera \
+ && find /opt/tessera -type d -exec chmod 0555 {} + \
+ && find /opt/tessera -type f -exec chmod 0444 {} +
+
+USER 65534:65534

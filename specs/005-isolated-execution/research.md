@@ -306,3 +306,56 @@ Searched the registry for podman and Temporal TypeScript on 2026-10-04: no relev
 | Ringpop membership ports in the host-binary fallback | local denial of service only | containerized server is the primary path |
 | `HTTPS_PROXY` not used by Node 22 `fetch` | advisory fetch fails behind a proxy | visible as `advisory-data-missing` |
 | Concurrency memory (4 × 2048 MiB) | host pressure under parallel audits | documented sizing; limits are per container, so one audit cannot starve the host |
+
+
+## Addendum R12 (spike S2, 2026-10-04): mutual TLS on the stock Temporal server
+
+### R12 addendum: spike S2 result (T001, 2026-10-04)
+
+**Decision: delivered.** Mutual TLS on the stock `temporalio/server:1.32.0` image, rootless in podman, publishing only `127.0.0.1:7233`, works with certificates made by Node `crypto` alone. The Go server, the Go `temporal` CLI, the TypeScript client (`@temporalio/client` 1.24.0, grpc-js/OpenSSL) and the worker (`NativeConnection`, Rust core/rustls) all accept the Node-made chain. No re-plan trigger fired; the openssl fallback is not needed. Six configuration facts below are new and must flow into the `temporal:local` launcher and PKI tasks (no change of decision, only of detail).
+
+**Host and versions**: Fedora 44, kernel 7.2.4, rootless podman 5.8.7 with pasta networking (netavark backend), `temporal` CLI 1.9.1, Node 22.23.1, SDK 1.24.0. Image `docker.io/temporalio/server:1.32.0`, digest `sha256:ca47d4de249b9cc28137628dba77ae5e75e8b313ebb5c801c64615c1c99cbb09`; image user `temporal` (uid 1000), entrypoint `exec temporal-server start`, no config files in the image (`render-config` fails: "no config files found"), so the config is mounted and selected with `TEMPORAL_SERVER_CONFIG_FILE_PATH`.
+
+**Configuration used** (`scripts/spikes/s2-mtls/config.template.yaml`):
+- persistence: upstream `development-sqlite.yaml` datastores, `mode: memory`, `cache: private`, one history shard.
+- `global.tls.frontend.server`: `certFile`, `keyFile`, `requireClientAuth: true`, `clientCaFiles: [ca.pem]`; `global.tls.frontend.client`: `serverName: localhost`, `rootCaFiles: [ca.pem]`.
+- `global.tls.systemWorker`: own client certificate `temporal-system-worker`, `client.serverName: localhost`, `client.rootCaFiles: [ca.pem]`. No `internode` TLS.
+- `global.pprof.port: 0`, no `global.metrics` block, no archival, no dynamic config file.
+- frontend `rpc.bindOnIP: "0.0.0.0"` (grpc 7233, http 7243, membership 6933); history, matching, worker `bindOnLocalHost: true`; `membership.broadcastAddress: 127.0.0.1`.
+- run: `podman run -d --name tessera-spike-s2-server --userns=keep-id -p 127.0.0.1:7233:7233 -v <cfg>:/etc/temporal/config:ro,Z -v <pki>:/etc/temporal/pki:ro,Z -e TEMPORAL_SERVER_CONFIG_FILE_PATH=/etc/temporal/config/config.yaml -e TEMPORAL_ALLOW_NO_AUTH=true <image>`.
+- PKI (`scripts/spikes/s2-mtls/pki.mts`, ~200 lines): ECDSA P-256, SHA-256, the profiles of `contracts/temporal-access.ts` (CA: basicConstraints CA critical, keyUsage keyCertSign+cRLSign critical, SKI; leaf: basicConstraints CA:false, keyUsage digitalSignature critical, EKU serverAuth or clientAuth, SKI, AKI; server SAN `localhost`, `127.0.0.1`, `::1`). Keys PKCS#8 PEM; dir 0700, files 0600. Self-check with `X509Certificate.verify/checkIssued/checkHost/checkIP` all ok; `certtool --certificate-info` parses every certificate as expected.
+
+**Measured results per exit criterion** (`run.sh` output, trimmed; every line was also run by hand):
+
+| Criterion | Result | Evidence |
+|-----------|--------|----------|
+| CLI without certificate refused | PASS | plaintext: rc=1 `the server requires TLS but the CLI is connecting without it`; TLS without client cert: rc=1 `TLS handshake failed: server requires client certificate (mTLS)` |
+| With certificate `operator namespace list` works | PASS | rc=0, lists `temporal-system` and `default` (after the launcher step below registered `default`) |
+| TS client and worker connect | PASS | `connect.mts`: worker (`NativeConnection` + `Worker.create`, cert `tessera-worker`) and client (`Connection`, cert `tessera-client`) run a workflow with one activity: result `"echo:mtls"`. Client refusals for plaintext, no cert, expired, other CA: `Failed to connect before the deadline`; worker refusals: `transport error ... received fatal alert: CertificateRequired` / `ConnectionReset` / `BrokenPipe` |
+| `podman port` shows only 127.0.0.1:7233 | PASS | `7233/tcp -> 127.0.0.1:7233` (also `podman port -a`); host `ss -ltn` shows only `127.0.0.1:7233` from this container |
+| Connection via host LAN address refused | PASS | `--address 192.168.1.132:7233`: rc=1 `connection refused`; also refused on the VPN address 10.134.0.230, on the docker bridge 10.200.0.1 and on `[::1]:7233`. Raw TCP probes of 7234, 7235, 7239, 7243, 6933, 7936 on 127.0.0.1, LAN and bridge: all `ECONNREFUSED` |
+| Expired client certificate refused | PASS | CLI rc=1 `remote error: tls: expired certificate` (TLS 1.3: the CLI prints "TLS handshake succeeded" first because the server checks the client certificate after the client's Finished; the server alert follows); HTTP API: `ERR_SSL_SSL/TLS_ALERT_CERTIFICATE_EXPIRED`; worker: fatal alert |
+| (extra) certificate from another CA refused | PASS | CLI rc=1 (the Go client does not even offer a certificate whose issuer is not in the server's CertificateRequest list); TS client refused |
+
+**Other recorded items**:
+- **SQLite mode**: in-memory. Schema is created automatically, but only `temporal-system` exists at start; `default` must be registered (`temporal operator namespace create --namespace default`) after `operator cluster health` succeeds. All state, including `default`, is lost on container restart (measured with `podman restart`: only `temporal-system` listed afterwards). Acceptable for dev, demo and dogfood (each run is self-contained); file mode was not tested.
+- **System worker TLS**: `global.tls.systemWorker` is required and sufficient. Measured without it: the worker service loops on `error creating sdk client ... client auth required, but no certificate provided`. With it, the delete-namespace system workflows (`temporal-sys-delete-namespace-workflow`, `temporal-sys-reclaim-namespace-resources-workflow`) complete. Internode TLS is not needed because history, matching and worker ports never leave the container network namespace. This settles the open point in `contracts/temporal-access.ts` ("systemWorker or internode").
+- **Web UI and other ports**: the image contains no Web UI and nothing listens for one. Listeners inside the container: 7233, 7243 (HTTP API) and 6933 on `0.0.0.0` (consequence of the frontend `bindOnIP`), 7234, 7235, 7239, 6934, 6935, 6939 on `127.0.0.1`; no pprof (port 0) and no metrics listener. None of these is published. The HTTP API also enforces mTLS (measured in a throwaway variant that published `127.0.0.1:17243:7243`: no cert `ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED`, expired cert refused, client cert 200), so even an accidental publish stays authenticated. Port 8000 on the host belongs to `woodpecker-server` (docker), unrelated.
+- **Authorizer**: without an authorizer the server logs `Not using any authorizer and flag --allow-no-auth not detected. Future versions will require using the flag`. `TEMPORAL_ALLOW_NO_AUTH=true` silences it (server log empty at level warn). Consequence, unchanged from R12: any certificate signed by the local CA has full access to every namespace; authentication, not authorization.
+
+**New facts the launcher and PKI tasks must adopt** (amend `contracts/temporal-access.ts` comments and the Phase 5 rows; no decision changes):
+1. **Frontend bind**: the frontend must bind a non-loopback address inside the container (`rpc.bindOnIP: "0.0.0.0"`). With `bindOnLocalHost: true` the published port accepts TCP but every connection is reset: pasta forwards to the container's interface address, not to its loopback (measured: `connection reset by peer` for plaintext, TLS and mTLS alike). Other services stay on loopback.
+2. **`--userns=keep-id`** is required with 0600 key files owned by the host user: without it the container user `temporal` maps to a subordinate uid and the server exits at start with `open /etc/temporal/pki/system-worker.pem: permission denied`. The docker fallback (`runtime: 'docker'` in the contract) was not measured; it would need `--user $(id -u):$(id -g)` or a copied key set, and belongs to S3/US3 follow-up.
+3. **System worker certificate**: the PKI gets a fifth leaf, `temporal-system-worker` (clientAuth), mounted only into the server; `PkiPaths` gains `systemWorkerCert`/`systemWorkerKey`.
+4. **Namespace bootstrap**: the launcher waits for `operator cluster health` and registers `default` on every start.
+5. **`TEMPORAL_ALLOW_NO_AUTH=true`** is passed by the launcher, so a future image bump cannot silently refuse to start or change behavior unnoticed.
+6. **Serial encoding**: the contract says "16 random bytes, first bit cleared". If the first byte then happens to be `0x00`, and the second byte's top bit is clear, a naive encoder produces a non-minimal DER INTEGER (about 1 in 256 certificates), which Go's strict DER parsing rejects (`integer not minimally-encoded`; known Go behavior, not provoked in this spike). The spike sets `serial[0] = (serial[0] & 0x7f) | 0x40` (always 16 bytes, positive, minimal); the encoder must also strip redundant leading zeros in general. A PKI unit test should cover a serial with a leading zero byte.
+
+**Risks and limits**:
+- `:Z` on the PKI bind mount relabels the host directory with the container's private SELinux label on every start; for `~/.config/tessera/temporal-pki` prefer mounting a per-run copy of only the server files (ca.pem, server, system-worker), which also keeps the client keys out of the container.
+- Stop: a server stuck in its start-up retry loop ignored SIGTERM for the default 10 s (`resorting to SIGKILL`); the launcher's `stop()` should use `podman rm -f -t <short>`.
+- grpc-js reports every refusal as the generic `Failed to connect before the deadline`; `connectTemporal` cannot map refusal causes from the client error text (the native worker error does name the TLS alert).
+- No revocation (unchanged): a leaked client key works until CA rotation.
+- Not measured: SQLite file mode, docker runtime, IPv6 bind (`::1`) of the launcher, image digest stability over time.
+
+**How to reproduce**: see `scripts/spikes/s2-mtls/README.md`. In short: `podman pull docker.io/temporalio/server:1.32.0`, ensure 7233/8233 are free, then `bash scripts/spikes/s2-mtls/run.sh <work-dir-outside-repo> <lan-ip>`; expected last line `RESULT: all checks passed`; the script removes its container on exit (`podman ps -a --filter name=tessera-spike-s2-` empty, no volumes created).
